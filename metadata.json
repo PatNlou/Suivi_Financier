@@ -1,0 +1,5 @@
+{
+  "name": "Pat Finances",
+  "description": "Une application complète de gestion de finances personnelles en Franc CFA (XOF), incluant dashboard analytique, gestion des transactions et suivi budgétaire annuel.",
+  "requestFramePermissions": []
+}
