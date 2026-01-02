@@ -221,8 +221,9 @@ const App: React.FC = () => {
               transactions={filteredTransactions} 
               annualTransactions={annualTransactions}
               budgets={budgets} 
+              categories={categories}
               onNavigate={setActiveTab} 
-              year={viewDate.year}
+              viewDate={viewDate}
             />
           )}
           {activeTab === 'transactions' && <TransactionsView user={user} transactions={filteredTransactions} categories={categories} onUpdate={fetchData} />}

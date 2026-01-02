@@ -23,6 +23,7 @@ export interface Transaction {
   amount: number;
   paymentMode: PaymentMode;
   userId: string;
+  linkedCategory?: string; // Utilisé pour le retrait d'épargne (source)
 }
 
 export interface Budget {

@@ -14,9 +14,19 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULT_CATEGORIES = [
-  'Alimentation', 'Transport', 'Loisirs', 'Loyer', 'Santé', 
-  'Éducation', 'Shopping', 'Abonnements', 'Salaire', 
-  'Business', 'Investissement', 'Autres'
+  { name: 'Alimentation', type: TransactionType.DEPENSE },
+  { name: 'Transport', type: TransactionType.DEPENSE },
+  { name: 'Loisirs', type: TransactionType.DEPENSE },
+  { name: 'Loyer', type: TransactionType.DEPENSE },
+  { name: 'Santé', type: TransactionType.DEPENSE },
+  { name: 'Éducation', type: TransactionType.DEPENSE },
+  { name: 'Shopping', type: TransactionType.DEPENSE },
+  { name: 'Abonnements', type: TransactionType.DEPENSE },
+  { name: 'Salaire', type: TransactionType.GAIN },
+  { name: 'Business', type: TransactionType.GAIN },
+  { name: 'Investissement', type: TransactionType.EPARGNE },
+  { name: 'Épargne de secours', type: TransactionType.EPARGNE },
+  { name: 'Autres', type: TransactionType.DEPENSE }
 ];
 
 const getFromStorage = <T,>(key: string): T[] => {
@@ -61,7 +71,7 @@ export const dbService = {
         saveToStorage(STORAGE_KEYS.CATEGORIES, normalizedCt);
       }
     } catch (error) {
-      console.error("Erreur critique lors de l'importation dbService:", error);
+      console.error("Erreur critique lors de l'importation:", error);
       throw new Error("Le format des données est invalide.");
     }
   },
@@ -74,15 +84,14 @@ export const dbService = {
     };
   },
 
-  // Categories
   getCategories: async (userId: string): Promise<Category[]> => {
     let categories = getFromStorage<Category>(STORAGE_KEYS.CATEGORIES);
     if (categories.length === 0) {
-      categories = DEFAULT_CATEGORIES.map(name => ({
-        id: name.toLowerCase().replace(/\s+/g, '-'),
-        name,
+      categories = DEFAULT_CATEGORIES.map(cat => ({
+        id: cat.name.toLowerCase().replace(/\s+/g, '-'),
+        name: cat.name,
         userId: 'system',
-        type: (name === 'Salaire' || name === 'Business') ? TransactionType.GAIN : TransactionType.DEPENSE
+        type: cat.type
       }));
       saveToStorage(STORAGE_KEYS.CATEGORIES, categories);
     }
@@ -103,13 +112,10 @@ export const dbService = {
     
     if (catIndex > -1) {
       const oldName = categories[catIndex].name;
-      const oldType = categories[catIndex].type;
-      
       categories[catIndex].name = newName;
       categories[catIndex].type = newType;
       saveToStorage(STORAGE_KEYS.CATEGORIES, categories);
 
-      // Propager le changement de nom aux transactions
       const transactions = getFromStorage<Transaction>(STORAGE_KEYS.TRANSACTIONS);
       const updatedTx = transactions.map(t => {
         if (t.category === oldName && t.userId === userId) {
@@ -119,7 +125,6 @@ export const dbService = {
       });
       saveToStorage(STORAGE_KEYS.TRANSACTIONS, updatedTx);
 
-      // Propager le changement de nom aux budgets
       const budgets = getFromStorage<Budget>(STORAGE_KEYS.BUDGETS);
       const updatedBg = budgets.map(b => b.category === oldName && b.userId === userId ? { ...b, category: newName } : b);
       saveToStorage(STORAGE_KEYS.BUDGETS, updatedBg);
@@ -128,17 +133,14 @@ export const dbService = {
 
   deleteCategory: async (categoryId: string, userId: string): Promise<void> => {
     const categories = getFromStorage<Category>(STORAGE_KEYS.CATEGORIES);
-    // On ne permet pas de supprimer les catégories système par sécurité
     const catToDelete = categories.find(c => c.id === categoryId);
     if (catToDelete && catToDelete.userId === 'system') {
       throw new Error("Impossible de supprimer une catégorie système.");
     }
-
     const updatedCategories = categories.filter(c => !(c.id === categoryId && c.userId === userId));
     saveToStorage(STORAGE_KEYS.CATEGORIES, updatedCategories);
   },
 
-  // Transactions
   getTransactions: async (userId: string): Promise<Transaction[]> => {
     return getFromStorage<Transaction>(STORAGE_KEYS.TRANSACTIONS).filter(t => t.userId === userId);
   },
@@ -147,19 +149,20 @@ export const dbService = {
     const transactions = getFromStorage<Transaction>(STORAGE_KEYS.TRANSACTIONS);
     const index = transactions.findIndex(t => t.id === transaction.id);
     if (index > -1) {
-      transactions[index] = transaction;
+      transactions[index] = { ...transaction };
     } else {
-      transactions.push(transaction);
+      transactions.push({ ...transaction });
     }
     saveToStorage(STORAGE_KEYS.TRANSACTIONS, transactions);
   },
 
   deleteTransaction: async (id: string): Promise<void> => {
     const transactions = getFromStorage<Transaction>(STORAGE_KEYS.TRANSACTIONS);
-    saveToStorage(STORAGE_KEYS.TRANSACTIONS, transactions.filter(t => t.id !== id));
+    // On force la comparaison en string pour éviter les problèmes de type
+    const newTransactions = transactions.filter(t => String(t.id) !== String(id));
+    saveToStorage(STORAGE_KEYS.TRANSACTIONS, newTransactions);
   },
 
-  // Budgets
   getBudgets: async (userId: string, month: number, year: number): Promise<Budget[]> => {
     return getFromStorage<Budget>(STORAGE_KEYS.BUDGETS).filter(
       b => b.userId === userId && b.month === month && b.year === year
